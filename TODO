@@ -1,0 +1,10 @@
+- Auto-change property type to "Object" if the "Add Child Property" button is clicked
+- Confirmation modal when converting a property from an object that has children ("are you sure you want to delete this property and all of its children?")
+- code highlighting for when editing a prop ("which one does this correspond to?)
+- red error box around code when it chrome google.com (funny story, I used the word "erroneous" in a business meeting and I had to explain what it meant. mb upper management lol)
+- make this shit robust with error messages if you know what I'm saying
+- when labeling something as Type: Object, it should not actually make the type be object. It should just communicate that through child props
+- referencing other schemas when creating them... hmm...
+- add debounce with schema update?
+- add support for default values
+- add config file that can be written/read from

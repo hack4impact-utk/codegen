@@ -1,95 +1,103 @@
-import Image from 'next/image'
-import styles from './page.module.css'
+"use client";
+
+import { Box, Button, Typography } from "@mui/material";
+import React, { useEffect } from "react";
+import io from "socket.io-client";
+import Editor from "react-simple-code-editor";
+import { highlight, languages } from "prismjs";
+import { FileData } from "@/types";
+import SchemaConfigForm from "./components/SchemaConfigForm";
+import { _Schema } from "@/types/schema";
+import { generateSchemaCode, parseSchemaCode } from "@/server/actions/file";
 
 export default function Home() {
+  const [socket, setSocket] = React.useState<any>();
+  const [currentFile, setCurrentFile] = React.useState<FileData>(
+    {} as FileData
+  );
+  const [directoryContents, setDirectoryContents] = React.useState<string[]>(
+    []
+  );
+  const [schema, setSchema] = React.useState<_Schema>({ rootProps: [] });
+
+  useEffect(() => {
+    updateCode();
+  }, [schema]);
+
+  useEffect(() => {
+    setupServerSocket();
+  }, []);
+
+  async function setupServerSocket() {
+    await fetch("http://localhost:3000/api/socket-serve");
+
+    const newSocket = io("http://localhost:4000");
+    setSocket(newSocket);
+    newSocket.on("directory", (arg) => setDirectoryContents(arg as string[]));
+    newSocket.on("fileStream", (arg) => loadNewFile(arg as FileData));
+  }
+
+  function loadNewFile(file: FileData) {
+    setCurrentFile(file);
+
+    try {
+      const updatedSchema = parseSchemaCode(file.contents);
+      setSchema(updatedSchema);
+    } catch (e: any) {}
+  }
+
+  function selectNewFile(path: string) {
+    socket.emit("newFile", path);
+  }
+
+  async function saveFile(newFile: FileData) {
+    if (socket) {
+      socket.emit("fileStream", newFile);
+    }
+  }
+
+  async function updateCode() {
+    let newFile = {
+      ...currentFile,
+      contents: (await generateSchemaCode(schema)) ?? currentFile.contents,
+    };
+    setCurrentFile(newFile);
+    saveFile(newFile);
+  }
+
+  //await doc.save(); -- use this to see if schema is good
   return (
-    <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>app/page.tsx</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
+    <>
+      <Box sx={{ display: "flex", flexDirection: "column" }}>
+        {directoryContents.map((path, i) => (
+          <Button key={i} onClick={() => selectNewFile(path)}>
+            {path}
+          </Button>
+        ))}
+      </Box>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "row",
+          width: "100%",
+          justifyContent: "space-evenly",
+        }}
+      >
+        <SchemaConfigForm schema={schema} setSchema={setSchema} />
+        <Editor
+          value={currentFile.contents || ""}
+          onValueChange={(newFileContents) =>
+            setCurrentFile({ ...currentFile, contents: newFileContents })
+          }
+          highlight={(code) =>
+            highlight(code, languages.javascript, "javascript")
+          }
+          style={{
+            fontFamily: '"Fira code", "Fira Mono", monospace',
+            fontSize: 12,
+          }}
         />
-      </div>
-
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore the Next.js 13 playground.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  )
+      </Box>
+    </>
+  );
 }
